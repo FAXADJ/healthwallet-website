@@ -1,0 +1,65 @@
+---
+import '../styles/global.css';
+import { appConfig, isConfiguredUrl } from '../config/app';
+import StoreLinks from '../components/StoreLinks.astro';
+interface Props { title: string; description: string; }
+const { title, description } = Astro.props;
+const path = Astro.url.pathname;
+const origin = isConfiguredUrl(appConfig.websiteUrl) ? appConfig.websiteUrl.replace(/\/$/, '') : null;
+const canonical = origin ? new URL(path, `${origin}/`).href : null;
+const socialImage = origin ? `${origin}/images/feature-graphic.png` : null;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#FAF7F0" />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+    <link rel="icon" type="image/png" href="/icons/favicon.png" />
+    <link rel="apple-touch-icon" href="/icons/app-icon.png" />
+    {canonical && <link rel="canonical" href={canonical} />}
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={appConfig.appName} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    {canonical && <meta property="og:url" content={canonical} />}
+    {socialImage && <meta property="og:image" content={socialImage} />}
+    {socialImage && <meta property="og:image:alt" content="HealthWallet promotional graphic" />}
+    <meta name="twitter:card" content={socialImage ? 'summary_large_image' : 'summary'} />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="/" aria-label="HealthWallet home">
+          <img src="/icons/app-icon.png" width="42" height="42" alt="" />
+          <span>HealthWallet</span>
+        </a>
+        <nav class="main-nav" aria-label="Main navigation">
+          <a href="/#about">About</a>
+          <a href="/#features">Features</a>
+          <a href="/#preview">Preview</a>
+          <a href="/support">Support</a>
+        </nav>
+        <a class="header-cta" href="/#download">Get the app <span aria-hidden="true">↗</span></a>
+      </div>
+    </header>
+    <main id="main"><slot /></main>
+    <footer class="site-footer">
+      <div class="container footer-top">
+        <div class="footer-brand">
+          <a class="brand" href="/"><img src="/icons/app-icon.png" width="42" height="42" alt="" /><span>HealthWallet</span></a>
+          <p>Your medical summary in your pocket.</p>
+          <StoreLinks compact />
+        </div>
+        <nav aria-label="Footer navigation" class="footer-nav">
+          <div><strong>Explore</strong><a href="/">Home</a><a href="/#features">Features</a><a href="/#preview">App preview</a></div>
+          <div><strong>Help & legal</strong><a href="/support">Support</a><a href="/account-deletion">Account deletion</a><a href="/privacy">Privacy Policy</a></div>
+        </nav>
+      </div>
+      <div class="container footer-bottom"><span>© {new Date().getFullYear()} {appConfig.developerName}. All rights reserved.</span><span>HealthWallet is not a medical device or emergency service.</span></div>
+    </footer>
+  </body>
+</html>

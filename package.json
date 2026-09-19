@@ -1,0 +1,19 @@
+{
+  "name": "healthwallet-website",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.0",
+    "astro": "^7.3.3",
+    "eslint": "^9.0.0",
+    "typescript": "^5.0.0"
+  }
+}

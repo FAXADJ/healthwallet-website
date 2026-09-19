@@ -1,0 +1,21 @@
+---
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+interface Props { file: string; label: string; note: string; featured?: boolean; }
+const { file, label, note, featured = false } = Astro.props;
+const src = `/screenshots/${file}`;
+const available = existsSync(join(process.cwd(), 'public', 'screenshots', file));
+---
+<figure class:list={['phone-preview', { featured }]}>
+  <div class="phone-frame">
+    <div class="phone-top" aria-hidden="true"></div>
+    {available ? <img src={src} alt={`${label} screen in the HealthWallet app`} loading={featured ? 'eager' : 'lazy'} width="360" height="780" /> : (
+      <div class="screen-placeholder" role="img" aria-label={`${label} screenshot placeholder — actual app screenshot to be added`}>
+        <img src="/icons/app-icon.png" width="72" height="72" alt="" />
+        <strong>{label}</strong>
+        <span>Actual app screenshot<br />to be added</span>
+      </div>
+    )}
+  </div>
+  <figcaption><strong>{label}</strong><span>{note}</span></figcaption>
+</figure>

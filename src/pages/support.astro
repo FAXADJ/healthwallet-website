@@ -1,0 +1,23 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { appConfig, isConfiguredEmail } from '../config/app';
+const supportReady = isConfiguredEmail(appConfig.supportEmail);
+---
+<BaseLayout title="Support | HealthWallet" description="Get help with HealthWallet accounts, app features, and account deletion.">
+  <div class="inner-hero"><div class="container"><span class="section-kicker">We are here to help</span><h1>Support</h1><p>Find answers to common questions or tell us what is going wrong in the HealthWallet app.</p></div></div>
+  <div class="container content-wrap">
+    {!supportReady && <aside class="notice"><strong>Support email must be configured before publication</strong>Replace {appConfig.supportEmail} in the site configuration with a monitored public inbox.</aside>}
+    <div class="support-grid">
+      <div class="support-card"><h2>Contact support</h2><p>The app lists <a href={`tel:${appConfig.supportPhone}`}>{appConfig.supportPhone}</a> for calls and <a href={`https://wa.me/${appConfig.supportPhone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer">WhatsApp support</a>. For account access, app errors, appointments, or general questions, email {supportReady ? <a href={`mailto:${appConfig.supportEmail}`}>{appConfig.supportEmail}</a> : <strong>{appConfig.supportEmail}</strong>}.</p><p>When reporting an issue, include your device type, app version, the screen where it happened, and what you expected. Do not email medical documents or verification codes unless support specifically provides a secure way to send them.</p></div>
+      <div class="support-card"><h2>Privacy or deletion</h2><p>For privacy requests, write to {isConfiguredEmail(appConfig.privacyEmail) ? <a href={`mailto:${appConfig.privacyEmail}`}>{appConfig.privacyEmail}</a> : <strong>{appConfig.privacyEmail}</strong>}.</p><p><a href="/account-deletion">Read the account deletion steps</a>, including how to request help if you cannot sign in.</p></div>
+    </div>
+    <span class="section-kicker">Common questions</span><h2>Frequently asked questions</h2>
+    <div class="faq-list">
+      <details><summary>How do I sign in?</summary><p>Enter your phone number in the app and use the one-time code sent by WhatsApp or SMS. Staff accounts may also have a separate password sign-in option. If a code does not arrive, check your number and contact support.</p></details>
+      <details><summary>Can I use the map without sharing my location?</summary><p>You may deny location permission. The map can still be browsed, but nearby and navigation features may be limited. Route requests send coordinates to the public OSRM service when you ask for directions.</p></details>
+      <details><summary>How do I share my health information?</summary><p>The app includes a personal QR code and a medical record PDF export. You choose when to show or share them. A linked doctor or coach may see information allowed for their role.</p></details>
+      <details><summary>How do I delete my account?</summary><p>In the app, open Settings, go to Account, tap Delete account, and type DELETE in the confirmation dialog. The server deletion service must be deployed and working for the request to complete. See the <a href="/account-deletion">full instructions</a>.</p></details>
+      <details><summary>Is HealthWallet an emergency service?</summary><p>No. It is an information organizer and provider directory. For urgent medical help, contact local emergency services.</p></details>
+    </div>
+  </div>
+</BaseLayout>
