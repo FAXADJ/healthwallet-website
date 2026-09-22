@@ -28,6 +28,11 @@ npm run preview
 
 ## Deploy
 
+**Live:** Netlify builds this repository on every push to `main` and serves it at `https://healthwallet.health` (domain registered at Hostinger, DNS pointed at Netlify).
+
+**App links** are part of this site: `public/.well-known/assetlinks.json` (Android verification), `public/_redirects` (sends `/p/*` and `/payment/return` to the `/open` page, which hands the link to the installed app), and `public/_headers` (serves `.well-known` files as JSON). Still to add: `public/.well-known/apple-app-site-association` once the Apple Team ID is known, and the Play App Signing fingerprint in `assetlinks.json` after the first Play upload.
+
+
 Deploy the `website/` folder as the project root. Use `npm install` (or `npm ci` after the lockfile is present), `npm run build`, and publish `dist/`. Astro exports clean routes as `privacy.html`, `support.html`, and `account-deletion.html`; configure clean URL handling on your host so `/privacy` resolves directly. Verify that public URL after deployment.
 
 - **Vercel / Netlify / Cloudflare Pages:** use the Astro/static preset or the build command and output directory above.
@@ -57,7 +62,7 @@ There is no `.env.example` because the site needs no environment variables or se
 
 - `public/icons/app-icon.png` and `public/icons/favicon.png` are resized copies of `../assets/icon/app_icon.png` from the mobile repository.
 - `public/images/feature-graphic.png` is a copy of the existing promotional graphic from `../dist/feature-graphic-1024x500.png`.
-- `public/screenshots/` contains instructions for `profile.png`, `map.png`, and `fitness.png`. No screen captures were found in the repository. The rendered frames say “Actual app screenshot to be added” until real files are present.
+- `public/screenshots/` holds `profile.png`, `map.png`, and `fitness.png`: real captures from the app, taken on the reviewer demo account with the QR code blurred. See `public/screenshots/README.md` before replacing one. A missing file falls back to a labeled placeholder.
 
 All site asset references stay inside `website/public/`; the `../` paths above are provenance only. Do not copy real patient data into screenshots.
 
