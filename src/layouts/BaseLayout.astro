@@ -2,8 +2,8 @@
 import '../styles/global.css';
 import { appConfig, isConfiguredUrl } from '../config/app';
 import StoreLinks from '../components/StoreLinks.astro';
-interface Props { title: string; description: string; }
-const { title, description } = Astro.props;
+interface Props { title: string; description: string; noindex?: boolean; }
+const { title, description, noindex = false } = Astro.props;
 const path = Astro.url.pathname;
 const origin = isConfiguredUrl(appConfig.websiteUrl) ? appConfig.websiteUrl.replace(/\/$/, '') : null;
 const canonical = origin ? new URL(path, `${origin}/`).href : null;
@@ -16,6 +16,7 @@ const socialImage = origin ? `${origin}/images/feature-graphic.png` : null;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#FAF7F0" />
     <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
     <title>{title}</title>
     <link rel="icon" type="image/png" href="/icons/favicon.png" />
     <link rel="apple-touch-icon" href="/icons/app-icon.png" />

@@ -1,0 +1,51 @@
+---
+// Landing page for app links the app itself could not intercept:
+//   /p/{slug}                    shared provider profile
+//   /payment/return?payment_id=  FIB return after paying
+// public/_redirects rewrites both paths here. When the app is installed and
+// Android has verified /.well-known/assetlinks.json, the OS opens the app
+// directly and this page is never shown.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import StoreLinks from '../components/StoreLinks.astro';
+---
+<BaseLayout title="Open in HealthWallet" description="Open this link in the HealthWallet app." noindex>
+  <div class="inner-hero"><div class="container"><span class="section-kicker">HealthWallet link</span><h1 id="open-title">Open in the app</h1><p id="open-lead">This link opens inside the HealthWallet app. If nothing happens, install the app and open the link again.</p></div></div>
+  <div class="container content-wrap open-wrap">
+    <a class="open-button" id="open-app" href="/" hidden>Open in HealthWallet <span aria-hidden="true">↗</span></a>
+    <StoreLinks />
+  </div>
+  <script is:inline>
+    (function () {
+      var parts = location.pathname.split('/').filter(Boolean);
+      // Same rules the app applies (lib/services/deep_links.dart).
+      var slugOk = /^[A-Za-z0-9._-]{1,64}$/;
+      var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      var appUrl = null, title = null, lead = null;
+
+      if (parts[0] === 'p' && parts[1] && slugOk.test(parts[1])) {
+        appUrl = 'healthwallet://p/' + encodeURIComponent(parts[1]);
+        title = '@' + parts[1] + ' on HealthWallet';
+        lead = 'Open this profile in the HealthWallet app to request a chat or an appointment.';
+      } else if (parts[0] === 'payment' && parts[1] === 'return') {
+        var id = new URLSearchParams(location.search).get('payment_id');
+        if (id && uuid.test(id)) {
+          appUrl = 'healthwallet://payment/return?payment_id=' + encodeURIComponent(id);
+          title = 'Return to your payment';
+          lead = 'HealthWallet confirms the final status with the bank. Open the app to see it.';
+        }
+      }
+      if (!appUrl) return;
+
+      document.getElementById('open-title').textContent = title;
+      document.getElementById('open-lead').textContent = lead;
+      var button = document.getElementById('open-app');
+      button.href = appUrl;
+      button.hidden = false;
+
+      // On a phone, try the app straight away; if it is not installed the page simply stays.
+      if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        setTimeout(function () { window.location.href = appUrl; }, 250);
+      }
+    })();
+  </script>
+</BaseLayout>

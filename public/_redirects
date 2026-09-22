@@ -1,0 +1,4 @@
+# Netlify. App links the app did not intercept land on the "open in app" page.
+# Must stay in step with the app: AndroidManifest.xml (/p/) and the FIB return.
+/p/*              /open.html   200
+/payment/return   /open.html   200
