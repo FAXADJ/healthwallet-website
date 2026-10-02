@@ -1,0 +1,20 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["W3W27UDPA7.health.healthwallet.app"],
+        "components": [
+          {
+            "/": "/p/*",
+            "comment": "Provider profile links"
+          },
+          {
+            "/": "/payment/return*",
+            "comment": "FIB payment return"
+          }
+        ]
+      }
+    ]
+  }
+}
