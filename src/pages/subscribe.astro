@@ -1,0 +1,315 @@
+---
+// Web checkout. iPhone users cannot buy inside the app — Apple requires its
+// own payment system for in-app unlocks, and an Iraq-registered account has no
+// agreement to use it — so the subscription is sold here instead and the app
+// honours it. Android users can also pay here if they prefer.
+//
+// Everything runs in the browser against the same backend the app uses:
+// request_otp / verify_otp to sign in, then fib_create_payment.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { plans, formatIqd } from '../config/backend';
+---
+<BaseLayout
+  title="Subscribe | HealthWallet"
+  description="Subscribe to HealthWallet with FIB. Sign in with your phone number and pay in Iraqi dinars."
+>
+  <div class="inner-hero">
+    <div class="container">
+      <span class="section-kicker">Your subscription</span>
+      <h1>Subscribe to HealthWallet</h1>
+      <p>Sign in with the phone number you use in the app and pay with First Iraqi Bank. Your subscription is active the moment the payment clears.</p>
+    </div>
+  </div>
+
+  <div class="container content-wrap checkout">
+    <!-- 1. Phone -->
+    <section class="step" id="step-phone">
+      <h2>1. Your phone number</h2>
+      <p class="muted">The same number you sign in with in the app. We send a code by WhatsApp or SMS.</p>
+      <form id="phone-form" novalidate>
+        <div class="field-row">
+          <span class="prefix" aria-hidden="true">+964</span>
+          <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel-national"
+                 placeholder="750 123 4567" aria-label="Phone number" required />
+        </div>
+        <button class="primary" type="submit" id="send-code">Send code</button>
+      </form>
+    </section>
+
+    <!-- 2. Code -->
+    <section class="step" id="step-code" hidden>
+      <h2>2. The code we sent</h2>
+      <p class="muted">Six digits, valid for a few minutes.</p>
+      <form id="code-form" novalidate>
+        <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code"
+               maxlength="6" placeholder="123456" aria-label="Verification code" required />
+        <button class="primary" type="submit" id="verify-code">Sign in</button>
+        <button class="link" type="button" id="change-phone">Use a different number</button>
+      </form>
+    </section>
+
+    <!-- 3. Plan -->
+    <section class="step" id="step-plan" hidden>
+      <h2>3. Choose a plan</h2>
+      <p class="muted" id="current-status"></p>
+      <div class="plans">
+        {plans.map((plan) => (
+          <button class="plan" type="button" data-months={plan.months}>
+            <strong>{plan.label}</strong>
+            <span class="price">{formatIqd(plan.amount)}</span>
+            {plan.note && <span class="note">{plan.note}</span>}
+          </button>
+        ))}
+      </div>
+    </section>
+
+    <!-- 4. Pay -->
+    <section class="step" id="step-pay" hidden>
+      <h2>4. Pay with FIB</h2>
+      <p class="muted">Open your FIB app, scan this code or enter the reference, and approve the payment. This page updates by itself.</p>
+      <div class="pay-grid">
+        <div class="qr-card">
+          <img id="qr" alt="FIB payment QR code" width="260" height="260" />
+          <p class="reference">Reference: <strong id="readable-code">—</strong></p>
+          <p class="muted" id="expiry"></p>
+        </div>
+        <div class="pay-links">
+          <p><strong id="pay-amount"></strong></p>
+          <a class="primary" id="link-personal" href="#" target="_blank" rel="noopener">Open FIB Personal</a>
+          <a class="secondary" id="link-business" href="#" target="_blank" rel="noopener">Open FIB Business</a>
+          <a class="secondary" id="link-corporate" href="#" target="_blank" rel="noopener">Open FIB Corporate</a>
+          <p class="muted">On a computer? Scan the code with the FIB app on your phone.</p>
+          <button class="link" type="button" id="cancel-payment">Cancel this payment</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Done -->
+    <section class="step done" id="step-done" hidden>
+      <h2>Payment received</h2>
+      <p id="done-detail">Your subscription is active. Open HealthWallet on your phone — the paid features are unlocked for this account.</p>
+    </section>
+
+    <p class="message" id="message" role="status" aria-live="polite" hidden></p>
+
+    <section class="legal-section help">
+      <h2>Trouble paying?</h2>
+      <p>Email <a href="mailto:rawazyas@gmail.com">rawazyas@gmail.com</a> or call <a href="tel:+9647501704042">+964 750 170 4042</a>. Include the reference shown on this page if a payment did not complete.</p>
+    </section>
+  </div>
+
+  <script>
+    import { createClient } from '@supabase/supabase-js';
+    import { backend, formatIqd } from '../config/backend';
+
+    const db = createClient(backend.url, backend.anonKey, {
+      auth: { persistSession: true, autoRefreshToken: true },
+    });
+
+    const $ = (id: string) => document.getElementById(id)!;
+    const show = (id: string, visible = true) => { ($(id) as HTMLElement).hidden = !visible; };
+    const message = $('message');
+
+    let phone = '';
+    let paymentId: string | null = null;
+    let poll: number | undefined;
+    let expiryTimer: number | undefined;
+
+    function say(text: string, kind: 'info' | 'error' = 'info') {
+      message.textContent = text;
+      message.className = `message ${kind}`;
+      message.hidden = !text;
+    }
+
+    /** Server errors are raised as short codes; turn them into plain English. */
+    function explain(error: unknown): string {
+      const raw = (error as { message?: string })?.message ?? String(error);
+      if (raw.includes('too_many_requests')) return 'Too many codes requested. Wait ten minutes and try again.';
+      if (raw.includes('service_busy')) return 'The service is busy. Please try again in a moment.';
+      if (raw.includes('invalid phone number')) return 'That is not a valid Iraqi mobile number.';
+      if (raw.includes('wrong_code') || raw.includes('invalid')) return 'That code is not right. Check it and try again.';
+      if (raw.includes('expired')) return 'That code has expired. Request a new one.';
+      if (raw.includes('not signed in')) return 'Your session ended. Sign in again.';
+      if (raw.includes('FIB')) return 'The payment service is not responding. Try again shortly.';
+      return 'Something went wrong. Please try again.';
+    }
+
+    async function currentStatus() {
+      const { data: { user } } = await db.auth.getUser();
+      if (!user) return null;
+      const { data } = await db.from('profiles').select('full_name, subscribed_until').eq('id', user.id).maybeSingle();
+      return data as { full_name: string; subscribed_until: string | null } | null;
+    }
+
+    async function showPlans() {
+      show('step-phone', false);
+      show('step-code', false);
+      show('step-plan');
+      const profile = await currentStatus();
+      const until = profile?.subscribed_until ? new Date(profile.subscribed_until) : null;
+      const name = profile?.full_name?.trim();
+      // A web-first signup has an account but no profile yet; the app is
+      // where that gets filled in.
+      const greeting = name
+        ? `Signed in as ${name}.`
+        : 'Signed in. Finish setting up your profile in the app when you have paid.';
+      $('current-status').textContent = until && until > new Date()
+        ? `${greeting} Your access runs until ${until.toLocaleDateString()}. Paying again extends it.`
+        : `${greeting} Choose how long you want.`;
+    }
+
+    // ── 1. Phone ────────────────────────────────────────────────────────────
+    $('phone-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const typed = (($('phone') as HTMLInputElement).value || '').replace(/\D/g, '');
+      if (typed.length < 9) { say('Enter your mobile number, for example 750 123 4567.', 'error'); return; }
+      phone = typed.startsWith('0') ? typed : `0${typed}`;
+      const button = $('send-code') as HTMLButtonElement;
+      button.disabled = true;
+      say('Sending the code…');
+      try {
+        await db.rpc('request_otp', { phone_raw: phone });
+        say('');
+        show('step-code');
+        ($('code') as HTMLInputElement).focus();
+      } catch (error) {
+        say(explain(error), 'error');
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    $('change-phone').addEventListener('click', () => {
+      show('step-code', false);
+      say('');
+      ($('phone') as HTMLInputElement).focus();
+    });
+
+    // ── 2. Code ─────────────────────────────────────────────────────────────
+    $('code-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const code = (($('code') as HTMLInputElement).value || '').replace(/\D/g, '');
+      if (code.length !== 6) { say('The code is six digits.', 'error'); return; }
+      const button = $('verify-code') as HTMLButtonElement;
+      button.disabled = true;
+      say('Checking…');
+      try {
+        // Same handshake the app uses: the server hands back a one-time token
+        // hash, which the client exchanges for a session.
+        const { data, error } = await db.rpc('verify_otp', { phone_raw: phone, code });
+        if (error) throw error;
+        const tokenHash = (data as { token_hash?: string })?.token_hash;
+        if (!tokenHash) throw new Error('wrong_code');
+        const { error: sessionError } = await db.auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' });
+        if (sessionError) throw sessionError;
+        say('');
+        await showPlans();
+      } catch (error) {
+        say(explain(error), 'error');
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    // ── 3. Plan → payment ───────────────────────────────────────────────────
+    document.querySelectorAll('.plan').forEach((element) => {
+      element.addEventListener('click', async () => {
+        const months = Number((element as HTMLElement).dataset.months);
+        document.querySelectorAll('.plan').forEach((p) => ((p as HTMLButtonElement).disabled = true));
+        say('Creating your payment…');
+        try {
+          const { data, error } = await db.rpc('fib_create_payment', { months });
+          if (error) throw error;
+          startPayment(data as Record<string, string>);
+          say('');
+        } catch (error) {
+          say(explain(error), 'error');
+        } finally {
+          document.querySelectorAll('.plan').forEach((p) => ((p as HTMLButtonElement).disabled = false));
+        }
+      });
+    });
+
+    function startPayment(payment: Record<string, string>) {
+      paymentId = payment.id;
+      const qr = $('qr') as HTMLImageElement;
+      // FIB returns the QR as a data URL or bare base64 PNG.
+      qr.src = payment.qrCode?.startsWith('data:') ? payment.qrCode : `data:image/png;base64,${payment.qrCode}`;
+      $('readable-code').textContent = payment.readableCode ?? '—';
+      $('pay-amount').textContent = `${formatIqd(Number(payment.amount))} for ${payment.months} month(s)`;
+
+      for (const [id, link] of [
+        ['link-personal', payment.personalAppLink],
+        ['link-business', payment.businessAppLink],
+        ['link-corporate', payment.corporateAppLink],
+      ] as const) {
+        const anchor = $(id) as HTMLAnchorElement;
+        // Only https links are offered; anything else is dropped rather than
+        // handed to the browser.
+        if (link && link.startsWith('https://')) { anchor.href = link; anchor.hidden = false; }
+        else { anchor.hidden = true; }
+      }
+
+      show('step-plan', false);
+      show('step-pay');
+      countdown(payment.validUntil);
+      poll = window.setInterval(check, 5000);
+      window.setTimeout(check, 2500);
+    }
+
+    function countdown(validUntil?: string) {
+      const expiresAt = validUntil ? new Date(validUntil).getTime() : 0;
+      if (!expiresAt) return;
+      window.clearInterval(expiryTimer);
+      expiryTimer = window.setInterval(() => {
+        const left = Math.max(0, expiresAt - Date.now());
+        const minutes = Math.floor(left / 60000);
+        const seconds = Math.floor((left % 60000) / 1000).toString().padStart(2, '0');
+        $('expiry').textContent = left > 0 ? `Expires in ${minutes}:${seconds}` : 'This payment has expired. Start again.';
+        if (left <= 0) { window.clearInterval(expiryTimer); window.clearInterval(poll); }
+      }, 1000);
+    }
+
+    // ── 4. Wait for the bank ────────────────────────────────────────────────
+    async function check() {
+      if (!paymentId) return;
+      try {
+        const { data, error } = await db.rpc('fib_check_payment', { payment_id: paymentId });
+        if (error) throw error;
+        const status = (data as { status?: string })?.status ?? String(data ?? '');
+        if (/PAID/i.test(status)) {
+          window.clearInterval(poll);
+          window.clearInterval(expiryTimer);
+          const profile = await currentStatus();
+          const until = profile?.subscribed_until ? new Date(profile.subscribed_until) : null;
+          if (until) {
+            $('done-detail').textContent =
+              `Your subscription is active until ${until.toLocaleDateString()}. Open HealthWallet on your phone — the paid features are unlocked for this account.`;
+          }
+          show('step-pay', false);
+          show('step-done');
+        } else if (/DECLINED|CANCEL|EXPIRED/i.test(status)) {
+          window.clearInterval(poll);
+          say('That payment was not completed. You can choose a plan and try again.', 'error');
+          show('step-pay', false);
+          show('step-plan');
+        }
+      } catch {
+        // A failed poll is not worth reporting; the next one is five seconds away.
+      }
+    }
+
+    $('cancel-payment').addEventListener('click', async () => {
+      window.clearInterval(poll);
+      window.clearInterval(expiryTimer);
+      if (paymentId) { try { await db.rpc('fib_cancel_payment', { payment_id: paymentId }); } catch { /* best effort */ } }
+      paymentId = null;
+      show('step-pay', false);
+      show('step-plan');
+      say('');
+    });
+
+    // Someone returning with a live session skips straight to the plans.
+    db.auth.getSession().then(({ data }) => { if (data.session) showPlans(); });
+  </script>
+</BaseLayout>
