@@ -1,10 +1,13 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "com.healthwallet.app",
       "sha256_cert_fingerprints": [
+        "C5:19:BA:E6:F4:4B:D6:5B:D3:62:11:CB:ED:D8:63:B2:E6:23:D4:26:E5:CF:E1:C6:FA:D6:FA:40:13:AD:3B:C7",
         "E1:58:1A:B2:E4:44:17:E0:C1:56:E6:91:CD:20:3B:A5:C4:0B:63:CA:62:81:A4:EA:49:E1:DC:E1:0A:3F:C0:DC"
       ]
     }
